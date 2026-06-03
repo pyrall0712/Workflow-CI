@@ -1,0 +1,12 @@
+name: iris_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12.7
+  - pip
+  - pip:
+      - mlflow==2.11.3
+      - pandas
+      - scikit-learn
+      - dagshub
