@@ -27,6 +27,14 @@ jobs:
       run: |
         python -m mlflow run . --no-conda
 
-    - name: Build Docker Image from MLflow Model
-      run: |
-        python -m mlflow models build-docker -m "runs:/CI_Automated_Run/model" -n "pyrall0712/iris-model-api:latest" --enable-mlserver
+    # MENGGUNAKAN DOCKER BUILD BUATAN GITHUB ACTIONS (ANTI-ERROR)
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: false # Set true jika nanti Anda ingin push ke Docker Hub
+        tags: pyrall0712/iris-model-api:latest
