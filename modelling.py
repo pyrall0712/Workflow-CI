@@ -10,10 +10,12 @@ def setup_dagshub_auth():
     token = os.getenv("DAGSHUB_TOKEN_BYPASS")
     if token:
         print("🔧 Mengonfigurasi token otentikasi DagsHub secara manual...")
-        # PERBAIKAN: Menggunakan get_token sesuai rekomendasi sistem DagsHub Anda
-        from dagshub.auth import get_token
-        get_token(token)
+        # Kunci token ke environment variable terlebih dahulu
         os.environ["DAGSHUB_CLIENT_TOKEN"] = token
+        
+        # PERBAIKAN: Biarkan get_token() kosong tanpa argumen agar ia membaca os.environ di atas
+        from dagshub.auth import get_token
+        get_token()
 
 def train_model():
     # Jalankan konfigurasi bypass token sebelum inisialisasi
