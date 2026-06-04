@@ -3,28 +3,23 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 import mlflow
-import dagshub
-
-def setup_dagshub_auth():
-    # Mengambil token yang dikirim dari file YAML workflow
-    token = os.getenv("DAGSHUB_TOKEN_BYPASS")
-    if token:
-        print("🔧 Mengonfigurasi token otentikasi DagsHub secara manual...")
-        # Kunci token ke environment variable terlebih dahulu
-        os.environ["DAGSHUB_CLIENT_TOKEN"] = token
-        
-        # PERBAIKAN: Biarkan get_token() kosong tanpa argumen agar ia membaca os.environ di atas
-        from dagshub.auth import get_token
-        get_token()
 
 def train_model():
-    # Jalankan konfigurasi bypass token sebelum inisialisasi
-    setup_dagshub_auth()
+    # 1. Ambil Token dari GitHub Actions
+    token = os.getenv("DAGSHUB_TOKEN_BYPASS")
     
-    # Inisialisasi koneksi ke DagsHub
-    dagshub.init(repo_owner='pyrall0712', repo_name='Eksperimen_SML_MuhamadRizal', mlflow=True)
+    if token:
+        print("🔧 Menghubungkan MLflow langsung ke Remote Tracker DagsHub...")
+        # Gunakan nama pengguna dan token sebagai kredensial standar MLflow
+        os.environ["MLFLOW_TRACKING_USERNAME"] = "pyrall0712"
+        os.environ["MLFLOW_TRACKING_PASSWORD"] = token
+        
+        # Set langsung URI Tracker MLflow ke server DagsHub Anda
+        repo_owner = "pyrall0712"
+        repo_name = "Eksperimen_SML_MuhamadRizal"
+        mlflow.set_tracking_uri(f"https://dagshub.com/{repo_owner}/{repo_name}.mlflow")
 
-    # Mengambil data Iris hasil preprocessing dari repositori utama Anda
+    # 2. Mengambil data Iris hasil preprocessing dari repositori utama Anda
     url_train = "https://raw.githubusercontent.com/pyrall0712/Eksperimen_SML_MuhamadRizal/main/preprocessing/namadataset_preprocessing/iris_train_processed.csv"
     url_test = "https://raw.githubusercontent.com/pyrall0712/Eksperimen_SML_MuhamadRizal/main/preprocessing/namadataset_preprocessing/iris_test_processed.csv"
     
@@ -36,6 +31,7 @@ def train_model():
     X_test = test_df.drop(columns=['Species'])
     y_test = test_df['Species']
 
+    # 3. Kunci nama eksperimen
     mlflow.set_experiment("Iris_Classification_Baseline")
 
     with mlflow.start_run(run_name="CI_Automated_Run"):
@@ -48,6 +44,7 @@ def train_model():
         mlflow.log_param("n_estimators", 100)
         mlflow.log_metric("accuracy", acc)
         
+        # MENYIMPAN MODEL FISIK
         mlflow.sklearn.log_model(
             sk_model=model, 
             artifact_path="model",
