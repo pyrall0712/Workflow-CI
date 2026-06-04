@@ -6,16 +6,23 @@ import mlflow
 
 def train_model():
     token = os.getenv("DAGSHUB_TOKEN_BYPASS")
+    repo_owner = "pyrall0712"
+    repo_name = "Eksperimen_SML_MuhamadRizal"
     
     if token:
-        print("🔧 Menghubungkan MLflow langsung ke Remote Tracker DagsHub...")
-        os.environ["MLFLOW_TRACKING_USERNAME"] = "pyrall0712"
-        os.environ["MLFLOW_TRACKING_PASSWORD"] = token
+        print("🔧 Menghubungkan MLflow beserta Penyimpanan Artefak ke DagsHub...")
         
-        repo_owner = "pyrall0712"
-        repo_name = "Eksperimen_SML_MuhamadRizal"
+        # 1. Kredensial untuk Teks (Metrik & Parameter)
+        os.environ["MLFLOW_TRACKING_USERNAME"] = repo_owner
+        os.environ["MLFLOW_TRACKING_PASSWORD"] = token
         mlflow.set_tracking_uri(f"https://dagshub.com/{repo_owner}/{repo_name}.mlflow")
+        
+        # 2. Kredensial untuk File Fisik (Artefak S3) - INI KUNCI PERBAIKANNYA
+        os.environ["AWS_ACCESS_KEY_ID"] = repo_owner
+        os.environ["AWS_SECRET_ACCESS_KEY"] = token
+        os.environ["MLFLOW_S3_ENDPOINT_URL"] = f"https://dagshub.com/{repo_owner}/{repo_name}.s3"
 
+    # Ambil data Iris hasil preprocessing dari repositori utama Anda
     url_train = "https://raw.githubusercontent.com/pyrall0712/Eksperimen_SML_MuhamadRizal/main/preprocessing/namadataset_preprocessing/iris_train_processed.csv"
     url_test = "https://raw.githubusercontent.com/pyrall0712/Eksperimen_SML_MuhamadRizal/main/preprocessing/namadataset_preprocessing/iris_test_processed.csv"
     
@@ -39,6 +46,8 @@ def train_model():
         mlflow.log_param("n_estimators", 100)
         mlflow.log_metric("accuracy", acc)
         
+        # PROSES UNGHAH S3 SEKARANG MEMILIKI AKSES PENUH
+        print("📦 Mengunggah file artefak model ke DagsHub Storage...")
         mlflow.sklearn.log_model(
             sk_model=model, 
             artifact_path="model",
