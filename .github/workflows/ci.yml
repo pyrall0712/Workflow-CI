@@ -27,7 +27,7 @@ jobs:
       env:
         DAGSHUB_TOKEN_BYPASS: ${{ secrets.DAGSHUB_TOKEN }}
       run: |
-        python -m mlflow run . --env-manager local
+        python modelling.py
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
