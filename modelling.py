@@ -10,19 +10,18 @@ def train_model():
     repo_name = "Eksperimen_SML_MuhamadRizal"
     
     if token:
-        print("🔧 Menghubungkan MLflow beserta Penyimpanan Artefak ke DagsHub...")
-        
-        # 1. Kredensial untuk Teks (Metrik & Parameter)
+        print("🔧 Mengonfigurasi MLflow Terpusat dengan Target S3 Storage DagsHub...")
+        # Kredensial untuk Akses Log Teks
         os.environ["MLFLOW_TRACKING_USERNAME"] = repo_owner
         os.environ["MLFLOW_TRACKING_PASSWORD"] = token
         mlflow.set_tracking_uri(f"https://dagshub.com/{repo_owner}/{repo_name}.mlflow")
         
-        # 2. Kredensial untuk File Fisik (Artefak S3) - INI KUNCI PERBAIKANNYA
+        # Kredensial Wajib untuk Akses File Fisik (S3 Storage)
         os.environ["AWS_ACCESS_KEY_ID"] = repo_owner
         os.environ["AWS_SECRET_ACCESS_KEY"] = token
         os.environ["MLFLOW_S3_ENDPOINT_URL"] = f"https://dagshub.com/{repo_owner}/{repo_name}.s3"
 
-    # Ambil data Iris hasil preprocessing dari repositori utama Anda
+    # Mengambil data Iris hasil preprocessing dari repositori utama Anda
     url_train = "https://raw.githubusercontent.com/pyrall0712/Eksperimen_SML_MuhamadRizal/main/preprocessing/namadataset_preprocessing/iris_train_processed.csv"
     url_test = "https://raw.githubusercontent.com/pyrall0712/Eksperimen_SML_MuhamadRizal/main/preprocessing/namadataset_preprocessing/iris_test_processed.csv"
     
@@ -36,7 +35,11 @@ def train_model():
 
     mlflow.set_experiment("Iris_Classification_Baseline")
 
-    with mlflow.start_run(run_name="CI_Automated_Run"):
+    # KUNCI UTAMA: Tentukan langsung tempat penyimpanan fisik ke s3 DagsHub
+    remote_artifact_uri = f"s3://{repo_name}/artifacts"
+
+    # Jalankan run dengan mengunci target lokasi artefaknya ke remote_artifact_uri
+    with mlflow.start_run(run_name="CI_Automated_Run", artifact_location=remote_artifact_uri):
         model = RandomForestClassifier(random_state=42)
         model.fit(X_train, y_train)
         
@@ -46,8 +49,7 @@ def train_model():
         mlflow.log_param("n_estimators", 100)
         mlflow.log_metric("accuracy", acc)
         
-        # PROSES UNGHAH S3 SEKARANG MEMILIKI AKSES PENUH
-        print("📦 Mengunggah file artefak model ke DagsHub Storage...")
+        print("📦 Memulai proses unggah berkas model biner secara langsung ke S3 DagsHub...")
         mlflow.sklearn.log_model(
             sk_model=model, 
             artifact_path="model",
