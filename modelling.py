@@ -3,6 +3,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 import mlflow
+from mlflow.exceptions import MlflowException
 
 def train_model():
     token = os.getenv("DAGSHUB_TOKEN_BYPASS")
@@ -33,13 +34,21 @@ def train_model():
     X_test = test_df.drop(columns=['Species'])
     y_test = test_df['Species']
 
-    mlflow.set_experiment("Iris_Classification_Baseline")
-
-    # KUNCI UTAMA: Tentukan langsung tempat penyimpanan fisik ke s3 DagsHub
+    # TENTUKAN TARGET LOKASI ARTIFAK DI S3 BUCKET DAGSHUB
+    experiment_name = "Iris_Classification_Baseline"
     remote_artifact_uri = f"s3://{repo_name}/artifacts"
 
-    # Jalankan run dengan mengunci target lokasi artefaknya ke remote_artifact_uri
-    with mlflow.start_run(run_name="CI_Automated_Run", artifact_location=remote_artifact_uri):
+    # CARA AMAN: Set lokasi artefak langsung di level Eksperimen
+    try:
+        mlflow.create_experiment(name=experiment_name, artifact_location=remote_artifact_uri)
+    except MlflowException:
+        # Jika eksperimen sudah ada di DagsHub, langsung pakai yang sudah ada
+        pass
+    
+    mlflow.set_experiment(experiment_name)
+
+    # Memulai run murni tanpa argumen ilegal
+    with mlflow.start_run(run_name="CI_Automated_Run"):
         model = RandomForestClassifier(random_state=42)
         model.fit(X_train, y_train)
         
