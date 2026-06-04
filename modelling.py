@@ -1,9 +1,9 @@
 import os
+import shutil
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 import mlflow
-from mlflow.exceptions import MlflowException
 
 def train_model():
     token = os.getenv("DAGSHUB_TOKEN_BYPASS")
@@ -11,16 +11,10 @@ def train_model():
     repo_name = "Eksperimen_SML_MuhamadRizal"
     
     if token:
-        print("🔧 Mengonfigurasi MLflow Terpusat dengan Target S3 Storage DagsHub...")
-        # Kredensial untuk Akses Log Teks
+        print("🔧 Menghubungkan MLflow langsung ke Remote Tracker DagsHub...")
         os.environ["MLFLOW_TRACKING_USERNAME"] = repo_owner
         os.environ["MLFLOW_TRACKING_PASSWORD"] = token
         mlflow.set_tracking_uri(f"https://dagshub.com/{repo_owner}/{repo_name}.mlflow")
-        
-        # Kredensial Wajib untuk Akses File Fisik (S3 Storage)
-        os.environ["AWS_ACCESS_KEY_ID"] = repo_owner
-        os.environ["AWS_SECRET_ACCESS_KEY"] = token
-        os.environ["MLFLOW_S3_ENDPOINT_URL"] = f"https://dagshub.com/{repo_owner}/{repo_name}.s3"
 
     # Mengambil data Iris hasil preprocessing dari repositori utama Anda
     url_train = "https://raw.githubusercontent.com/pyrall0712/Eksperimen_SML_MuhamadRizal/main/preprocessing/namadataset_preprocessing/iris_train_processed.csv"
@@ -34,21 +28,9 @@ def train_model():
     X_test = test_df.drop(columns=['Species'])
     y_test = test_df['Species']
 
-    # TENTUKAN TARGET LOKASI ARTIFAK DI S3 BUCKET DAGSHUB
-    experiment_name = "Iris_Classification_Baseline"
-    remote_artifact_uri = f"s3://{repo_name}/artifacts"
+    mlflow.set_experiment("Iris_Classification_Baseline")
 
-    # CARA AMAN: Set lokasi artefak langsung di level Eksperimen
-    try:
-        mlflow.create_experiment(name=experiment_name, artifact_location=remote_artifact_uri)
-    except MlflowException:
-        # Jika eksperimen sudah ada di DagsHub, langsung pakai yang sudah ada
-        pass
-    
-    mlflow.set_experiment(experiment_name)
-
-    # Memulai run murni tanpa argumen ilegal
-    with mlflow.start_run(run_name="CI_Automated_Run"):
+    with mlflow.start_run(run_name="CI_Automated_Run") as run:
         model = RandomForestClassifier(random_state=42)
         model.fit(X_train, y_train)
         
@@ -58,13 +40,22 @@ def train_model():
         mlflow.log_param("n_estimators", 100)
         mlflow.log_metric("accuracy", acc)
         
-        print("📦 Memulai proses unggah berkas model biner secara langsung ke S3 DagsHub...")
-        mlflow.sklearn.log_model(
-            sk_model=model, 
-            artifact_path="model",
-            registered_model_name="Iris_RandomForest_Model"
-        )
-        print(f"🚀 Berhasil! Akurasi Model CI: {acc:.4f}")
+        # 1. Simpan model ke dalam folder lokal sementara server GitHub terlebih dahulu
+        local_model_dir = "temp_model_folder"
+        if os.path.exists(local_model_dir):
+            shutil.rmtree(local_model_dir)
+            
+        print("💾 Menyimpan model ke direktori lokal server...")
+        mlflow.sklearn.save_model(sk_model=model, path=local_model_dir)
+        
+        # 2. TRIK KHUSUS: Paksa unggah folder lokal tadi langsung ke server DagsHub
+        print("🚀 Memaksa unggah folder model secara direct ke DagsHub Artifacts...")
+        mlflow.log_artifacts(local_dir=local_model_dir, artifact_path="model")
+        
+        # Bersihkan folder lokal sementara setelah sukses diunggah
+        shutil.rmtree(local_model_dir)
+        
+        print(f"🎯 Selesai! Akurasi Model CI: {acc:.4f}")
 
 if __name__ == "__main__":
     train_model()
