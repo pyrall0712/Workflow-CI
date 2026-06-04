@@ -6,18 +6,17 @@ import mlflow
 import dagshub
 
 def setup_dagshub_auth():
-    # Mengambil token yang dikirim dari file YAML workflow
+    # Mengambil token rahasia secara otomatis dari sistem GitHub (Bukan diketik manual di sini!)
     token = os.getenv("DAGSHUB_TOKEN_BYPASS")
     if token:
         print("🔧 Mengonfigurasi token otentikasi DagsHub secara manual...")
-        from dagshub.auth import TokenStorage
-        # Memaksa DagsHub menyimpan token di komputer virtual GitHub Runner
-        storage = TokenStorage()
-        storage.add_token_object("dagshub.com", {"token": token})
+        # Kode di bawah ini yang bertugas mendaftarkan token Anda ke sistem internal secara otomatis
+        from dagshub.auth import add_token
+        add_token(token)
         os.environ["DAGSHUB_CLIENT_TOKEN"] = token
 
 def train_model():
-    # Jalankan konfigurasi bypass token sebelum inisialisasi
+    # Jalankan konfigurasi otomatis sebelum program utama dimulai
     setup_dagshub_auth()
     
     # Inisialisasi koneksi ke DagsHub
