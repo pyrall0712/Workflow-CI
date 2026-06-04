@@ -1,57 +1,41 @@
-import os
-import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
-import mlflow
-import dagshub
+name: Machine Learning CI Pipeline
 
-def setup_dagshub_auth():
-    # Mengambil token yang dikirim dari file YAML workflow
-    token = os.getenv("DAGSHUB_TOKEN_BYPASS")
-    if token:
-        print("🔧 Mengonfigurasi token otentikasi DagsHub secara manual...")
-        # BARIS PERBAIKAN: Menggunakan fungsi add_token resmi bawaan dagshub.auth
-        from dagshub.auth import add_token
-        add_token(token)
-        os.environ["DAGSHUB_CLIENT_TOKEN"] = token
+on:
+  push:
+    branches:
+      - main
 
-def train_model():
-    # Jalankan konfigurasi bypass token sebelum inisialisasi
-    setup_dagshub_auth()
-    
-    # Inisialisasi koneksi ke DagsHub
-    dagshub.init(repo_owner='pyrall0712', repo_name='Eksperimen_SML_MuhamadRizal', mlflow=True)
+jobs:
+  ml_ci:
+    runs-on: ubuntu-latest
 
-    # Mengambil data Iris hasil preprocessing dari repositori utama Anda
-    url_train = "https://raw.githubusercontent.com/pyrall0712/Eksperimen_SML_MuhamadRizal/main/preprocessing/namadataset_preprocessing/iris_train_processed.csv"
-    url_test = "https://raw.githubusercontent.com/pyrall0712/Eksperimen_SML_MuhamadRizal/main/preprocessing/namadataset_preprocessing/iris_test_processed.csv"
-    
-    train_df = pd.read_csv(url_train).dropna()
-    test_df = pd.read_csv(url_test).dropna()
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-    X_train = train_df.drop(columns=['Species'])
-    y_train = train_df['Species']
-    X_test = test_df.drop(columns=['Species'])
-    y_test = test_df['Species']
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12.7'
 
-    mlflow.set_experiment("Iris_Classification_Baseline")
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install mlflow pandas scikit-learn dagshub
 
-    with mlflow.start_run(run_name="CI_Automated_Run"):
-        model = RandomForestClassifier(random_state=42)
-        model.fit(X_train, y_train)
-        
-        y_pred = model.predict(X_test)
-        acc = accuracy_score(y_test, y_pred)
-        
-        mlflow.log_param("n_estimators", 100)
-        mlflow.log_metric("accuracy", acc)
-        
-        mlflow.sklearn.log_model(
-            sk_model=model, 
-            artifact_path="model",
-            registered_model_name="Iris_RandomForest_Model"
-        )
-        print(f"🚀 Berhasil! Akurasi Model CI: {acc:.4f}")
+    - name: Run MLflow Project (Re-training)
+      env:
+        DAGSHUB_TOKEN_BYPASS: ${{ secrets.DAGSHUB_TOKEN }}
+      run: |
+        python -m mlflow run . --env-manager local
 
-if __name__ == "__main__":
-    train_model()
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: false
+        tags: pyrall0712/iris-model-api:latest
