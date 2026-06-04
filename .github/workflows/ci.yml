@@ -25,7 +25,7 @@ jobs:
 
     - name: Run MLflow Project (Re-training)
       env:
-        DAGSHUB_CLIENT_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        DAGSHUB_TOKEN_BYPASS: ${{ secrets.DAGSHUB_TOKEN }}
       run: |
         python -m mlflow run . --env-manager local
 
