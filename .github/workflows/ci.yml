@@ -22,18 +22,13 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install mlflow pandas scikit-learn dagshub
-        
-    - name: Run MLflow Project (Re-training)
-      run: |
-        python -m mlflow run . --env-manager local
-    
+
     - name: Run MLflow Project (Re-training)
       env:
-        DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        DAGSHUB_CLIENT_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
       run: |
         python -m mlflow run . --env-manager local
 
-    # MENGGUNAKAN DOCKER BUILD BUATAN GITHUB ACTIONS (ANTI-ERROR)
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
@@ -42,5 +37,5 @@ jobs:
       with:
         context: .
         file: ./Dockerfile
-        push: false # Set true jika nanti Anda ingin push ke Docker Hub
+        push: false
         tags: pyrall0712/iris-model-api:latest
